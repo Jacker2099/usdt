@@ -45,18 +45,22 @@ const App = () => {
 
   // 跳转到 TRON 钱包进行转账
   const handleRedirectToWallet = () => {
-    // 使用 TronLink 钱包的 deeplink（ tronlink://）
     const walletUrl = `tronlink://trx/transfer?address=${paymentAddress}&amount=${trxAmount}`;
     
     // 尝试跳转至 TRON 钱包
+    const start = new Date().getTime();
     const walletLink = document.createElement('a');
     walletLink.href = walletUrl;
     walletLink.click();
 
-    // 如果没有安装 TRON 钱包，跳转到官方 TRON 钱包下载页
+    // 如果没有安装 TRON 钱包，2秒后尝试跳转到官方网站或应用商店
     setTimeout(() => {
-      window.open('https://tronlink.org', '_blank');
-    }, 2000);
+      const end = new Date().getTime();
+      // 如果用户跳转时间小于 2秒，说明没有唤起钱包应用，进行备用操作
+      if (end - start < 2000) {
+        window.open('https://tronlink.org', '_blank');
+      }
+    }, 1500); // 等待1.5秒
   };
 
   return (
