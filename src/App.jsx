@@ -16,6 +16,8 @@ const App = () => {
   const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';
   // 合约地址（处理USDT购买逻辑）
   const contractAddress = 'TRVCzHHvW6PBXyxjXPTtoHKGyiJw7kThK6';
+  // USDT代币合约地址（需要替换为实际地址）
+  const usdtTokenAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // 示例USDT地址（主网），请确认
 
   useEffect(() => {
     // 检查TronLink连接
@@ -60,6 +62,20 @@ const App = () => {
     }
   };
 
+  // 检查合约USDT余额
+  const checkContractBalance = async (usdtAmountToBuy) => {
+    if (!tronWeb) return true; // 如果无tronWeb，跳过检查
+    try {
+      const usdtContract = await tronWeb.contract().at(usdtTokenAddress);
+      const balance = await usdtContract.balanceOf(contractAddress).call();
+      const balanceInUsdt = tronWeb.fromSun(balance); // 假设USDT为6位小数
+      return parseFloat(balanceInUsdt) >= usdtAmountToBuy / 1e6;
+    } catch (error) {
+      console.error('检查余额失败:', error);
+      return false;
+    }
+  };
+
   // 处理购买逻辑
   const handleBuy = async () => {
     const val = parseFloat(trxAmount);
@@ -80,6 +96,13 @@ const App = () => {
           throw new Error('未检测到用户钱包地址');
         }
 
+        // 检查合约USDT余额
+        const usdtAmountToBuy = parseFloat(calculateUsdt(val)) * 1e6; // USDT 6位小数
+        const hasEnoughBalance = await checkContractBalance(usdtAmountToBuy);
+        if (!hasEnoughBalance) {
+          throw new Error('合约USDT余额不足，无法完成购买');
+        }
+
         // 步骤1：发送TRX到paymentAddress
         const amountInSun = tronWeb.toSun(val);
         const trxTransaction = await tronWeb.trx.sendTransaction(paymentAddress, amountInSun, {
@@ -92,8 +115,6 @@ const App = () => {
 
         // 步骤2：调用合约的buy函数（无TRX）
         const contract = await tronWeb.contract().at(contractAddress);
-        const usdtAmountToBuy = parseFloat(calculateUsdt(val)) * 1e6; // USDT 6位小数
-
         try {
           const buyTransaction = await contract.buy(usdtAmountToBuy).send({
             callValue: 0, // 不发送TRX
@@ -112,7 +133,6 @@ const App = () => {
           // 捕获revert原因
           let errorMessage = buyError.message || '未知错误';
           if (buyError.output?.contractResult) {
-            // 尝试解析revert原因
             const result = buyError.output.contractResult[0];
             if (result) {
               try {
@@ -124,7 +144,7 @@ const App = () => {
             }
           }
           setTransactionStatus(
-            prev => `${prev}\nUSDT购买失败：${errorMessage}\nTRX已发送，请联系支持处理。`,
+            prev => `${prev}\nUSDT购买失败：${errorMessage}\nTRX已发送，请联系支持（support@example.com）处理。`,
           );
         }
       } catch (error) {
