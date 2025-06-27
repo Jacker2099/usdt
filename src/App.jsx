@@ -60,7 +60,17 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center space-y-5">
-        <h1 className="text-2xl font-bold text-gray-800">USDT 七折购</h1>
+        {/* Logo & Title */}
+        <div className="flex justify-center items-center space-x-3">
+          <img
+            src="https://i.imgur.com/pNAm2gN.png"
+            alt="USDT Logo"
+            className="w-10 h-10"
+            onError={(e) => (e.target.style.display = 'none')}
+          />
+          <h1 className="text-2xl font-bold text-gray-800">USDT 七折购</h1>
+        </div>
+
         <p className="text-yellow-600 text-sm">仅限社区活动，扫码转账后自动发币</p>
 
         <p className="text-lg text-gray-700">
