@@ -9,10 +9,10 @@ const App = () => {
   const [showQR, setShowQR] = useState(false);
   const [qrString, setQrString] = useState('');
 
-  // 代币合约地址
-  const contractAddress = 'TRVCzHHvW6PBXyxjXPTtoHKGyiJw7kThK6';  // 你的合约地址
-  // 用户钱包地址（付款地址）
-  const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';  // 示例钱包地址，用户可以通过二维码支付 TRX
+  // 收取 TRX 的地址（钱包地址）
+  const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';  // 这个是用来收取 TRX 的地址
+  // 合约地址
+  const contractAddress = 'TRVCzHHvW6PBXyxjXPTtoHKGyiJw7kThK6'; // 你的合约地址，用于购买代币
 
   useEffect(() => {
     if (window.tronWeb && window.tronWeb.ready) {
@@ -40,27 +40,30 @@ const App = () => {
     }
   };
 
-  const handleBuy = () => {
+  const handleBuy = async () => {
     const val = parseFloat(trxAmount);
     if (!val || val <= 0) return alert('请输入有效 TRX 数量');
 
     if (tronWeb) {
-      // 连接到合约地址并调用 `buy()` 函数
+      // 获取合约实例
       const contract = tronWeb.contract().at(contractAddress);
-      const usdtAmountToBuy = parseFloat(calculateUsdt(val)) * 1e6;  // 按 6 小数位计算
+
+      // 计算要购买的代币数量
+      const usdtAmountToBuy = parseFloat(calculateUsdt(val)) * 1e6;  // 6 小数位
+
+      // 调用合约的 buy() 函数
       contract.buy(usdtAmountToBuy).send({
-        callValue: tronWeb.toSun(val), // TRX 交易金额
-      })
-      .then(result => {
+        callValue: tronWeb.toSun(val), // TRX 转账金额
+      }).then(result => {
         alert(`购买成功！${val} TRX 已发送，合约已转账 ${usdtAmountToBuy} USDT`);
-      })
-      .catch(error => {
+      }).catch(error => {
         console.error(error);
         alert('购买失败，请重试！');
       });
     } else {
+      // 如果没有 TronLink 钱包，生成二维码，金额放入 amount 参数
       const qrData = `tron:${paymentAddress}?amount=${val.toFixed(6)}`;
-      setQrString(qrData);
+      setQrString(qrData);  // 这里二维码指向收款钱包地址，amount 存储 TRX 数量
       setShowQR(true);
     }
   };
