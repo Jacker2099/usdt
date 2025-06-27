@@ -10,7 +10,7 @@ const App = () => {
   const [qrString, setQrString] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [transactionStatus, setTransactionStatus] = useState('');
-  const [transactionId, setTransactionId] = useState('');
+  const [transactionIds, setTransactionIds] = useState({ trx: '', buy: '' });
 
   // 收款地址（接收TRX）
   const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';
@@ -56,7 +56,7 @@ const App = () => {
       setUsdtAmount(calculateUsdt(val));
       setShowQR(false);
       setTransactionStatus('');
-      setTransactionId('');
+      setTransactionIds({ trx: '', buy: '' });
     }
   };
 
@@ -70,7 +70,7 @@ const App = () => {
 
     setIsLoading(true);
     setTransactionStatus('');
-    setTransactionId('');
+    setTransactionIds({ trx: '', buy: '' });
 
     if (tronWeb) {
       try {
@@ -87,28 +87,49 @@ const App = () => {
           shouldPollResponse: true,
         });
 
-        setTransactionId(trxTransaction);
+        setTransactionIds(prev => ({ ...prev, trx: trxTransaction }));
         setTransactionStatus(`TRX已发送到收款地址 ${paymentAddress}，交易ID: ${trxTransaction}`);
 
         // 步骤2：调用合约的buy函数（无TRX）
         const contract = await tronWeb.contract().at(contractAddress);
         const usdtAmountToBuy = parseFloat(calculateUsdt(val)) * 1e6; // USDT 6位小数
 
-        const buyTransaction = await contract.buy(usdtAmountToBuy).send({
-          callValue: 0, // 不发送TRX
-          shouldPollResponse: true,
-          feeLimit: 100000000, // 设置费用限制
-          from: userAddress,
-        });
+        try {
+          const buyTransaction = await contract.buy(usdtAmountToBuy).send({
+            callValue: 0, // 不发送TRX
+            shouldPollResponse: true,
+            feeLimit: 100000000, // 设置费用限制
+            from: userAddress,
+          });
 
-        setTransactionStatus(
-          prev => `${prev}\nUSDT购买成功！交易ID: ${buyTransaction}\n请检查收款地址 ${paymentAddress} 是否收到TRX。`,
-        );
-        setTrxAmount('');
-        setUsdtAmount('');
+          setTransactionIds(prev => ({ ...prev, buy: buyTransaction }));
+          setTransactionStatus(
+            prev => `${prev}\nUSDT购买成功！交易ID: ${buyTransaction}\n请检查收款地址 ${paymentAddress} 是否收到TRX。`,
+          );
+          setTrxAmount('');
+          setUsdtAmount('');
+        } catch (buyError) {
+          // 捕获revert原因
+          let errorMessage = buyError.message || '未知错误';
+          if (buyError.output?.contractResult) {
+            // 尝试解析revert原因
+            const result = buyError.output.contractResult[0];
+            if (result) {
+              try {
+                const decoded = Buffer.from(result.slice(136), 'hex').toString('utf8');
+                errorMessage = `合约回滚：${decoded}`;
+              } catch {
+                errorMessage = '无法解析revert原因';
+              }
+            }
+          }
+          setTransactionStatus(
+            prev => `${prev}\nUSDT购买失败：${errorMessage}\nTRX已发送，请联系支持处理。`,
+          );
+        }
       } catch (error) {
         console.error('交易错误:', error);
-        setTransactionStatus(`购买失败：${error.message || '请检查合约或网络'}`);
+        setTransactionStatus(`购买失败：${error.message || '请检查网络或钱包'}`);
       }
     } else {
       // 如果没有TronLink，生成二维码
@@ -172,22 +193,35 @@ const App = () => {
 
         {/* 交易状态 */}
         {transactionStatus && (
-          <p className={`text-sm ${transactionStatus.includes('成功') ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`text-sm ${transactionStatus.includes('成功') && !transactionStatus.includes('失败') ? 'text-green-600' : 'text-red-600'}`}>
             {transactionStatus.split('\n').map((line, index) => (
               <span key={index}>
                 {line}
                 <br />
               </span>
             ))}
-            {transactionId && (
+            {transactionIds.trx && (
               <a
-                href={`https://tronscan.org/#/transaction/${transactionId}`}
+                href={`https://tronscan.org/#/transaction/${transactionIds.trx}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline text-blue-500"
               >
                 查看TRX交易
               </a>
+            )}
+            {transactionIds.buy && (
+              <>
+                <br />
+                <a
+                  href={`https://tronscan.org/#/transaction/${transactionIds.buy}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-blue-500"
+                >
+                  查看USDT交易
+                </a>
+              </>
             )}
           </p>
         )}
