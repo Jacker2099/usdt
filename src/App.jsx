@@ -15,16 +15,21 @@ const App = () => {
   const contractAddress = 'TRVCzHHvW6PBXyxjXPTtoHKGyiJw7kThK6'; // 你的合约地址，用于购买代币
 
   useEffect(() => {
+    // 检查是否加载了 TronLink 钱包
     if (window.tronWeb && window.tronWeb.ready) {
       setTronWeb(window.tronWeb);
+    } else {
+      alert("TronLink 钱包未连接");
     }
 
+    // 获取 TRX 实时价格
     fetch('https://api.coingecko.com/api/v3/simple/price?ids=tron&vs_currencies=usd')
       .then(res => res.json())
       .then(data => setTrxPrice(data.tron?.usd || 0.27))
       .catch(() => setTrxPrice(0.27));
   }, []);
 
+  // 计算可购买的 USDT 数量
   const calculateUsdt = (trx) => {
     const val = parseFloat(trx);
     if (!val || !trxPrice) return '';
