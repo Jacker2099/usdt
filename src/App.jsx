@@ -154,18 +154,23 @@ const App = () => {
     } else {
       // 如果没有TronLink，生成二维码
       const formattedAmount = val.toFixed(6);
-      // 使用JSON格式生成二维码数据，确保地址和金额分开
-      const qrData = JSON.stringify({
-        address: paymentAddress,
-        amount: formattedAmount,
-        currency: 'TRX'
-      });
+      // 使用标准的tron:协议URI，并对amount参数进行URL编码
+      const qrData = `tron:${paymentAddress}?amount=${encodeURIComponent(formattedAmount)}`;
       setQrString(qrData);
       setShowQR(true);
-      setTransactionStatus('请使用支持TRON的钱包（如TronLink）扫描二维码进行支付');
+      setTransactionStatus('请使用支持TRON的钱包（如TronLink）扫描二维码进行支付，或手动输入地址和金额。');
     }
 
     setIsLoading(false);
+  };
+
+  // 复制文本到剪贴板
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setTransactionStatus(prev => `${prev}\n已复制到剪贴板！`);
+    }).catch(() => {
+      setTransactionStatus(prev => `${prev}\n复制失败，请手动复制。`);
+    });
   };
 
   return (
@@ -263,16 +268,28 @@ const App = () => {
           <div className="pt-4 space-y-4">
             <QRCode value={qrString} size={150} className="mx-auto" />
             <p className="text-sm text-gray-500">
-              请使用支持TRON的钱包（如TronLink）扫描二维码转账
+              请使用支持TRON的钱包（如TronLink）扫描二维码转账，或手动输入以下信息：
             </p>
-            <div className="text-xs text-gray-600 space-y-2">
-              <div className="bg-gray-50 p-2 rounded">
-                <p className="font-semibold">收款地址:</p>
+            <div className="text-xs text-gray-600 space-y-3">
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <p className="font-semibold text-gray-700">收款地址:</p>
                 <p className="break-all text-gray-800">{paymentAddress}</p>
+                <button
+                  onClick={() => copyToClipboard(paymentAddress)}
+                  className="mt-2 text-blue-500 underline text-xs hover:text-blue-600"
+                >
+                  复制地址
+                </button>
               </div>
-              <div className="bg-gray-50 p-2 rounded">
-                <p className="font-semibold">转账金额:</p>
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <p className="font-semibold text-gray-700">转账金额:</p>
                 <p className="text-gray-800">{trxAmount} TRX</p>
+                <button
+                  onClick={() => copyToClipboard(trxAmount)}
+                  className="mt-2 text-blue-500 underline text-xs hover:text-blue-600"
+                >
+                  复制金额
+                </button>
               </div>
             </div>
           </div>
