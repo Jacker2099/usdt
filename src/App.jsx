@@ -16,7 +16,7 @@ const App = () => {
   const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';
   // 合约地址（处理USDT购买逻辑）
   const contractAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
-  // USDT代币合约地址（需要替换为实际地址）
+  // USDT代币合约地址
   const usdtTokenAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // 示例USDT地址（主网），请确认
 
   useEffect(() => {
@@ -154,11 +154,15 @@ const App = () => {
     } else {
       // 如果没有TronLink，生成二维码
       const formattedAmount = val.toFixed(6);
-      // Use a standardized TRON QR code format
-      const qrData = `tron:${paymentAddress}?amount=${formattedAmount}`;
+      // 使用JSON格式生成二维码数据，确保地址和金额分开
+      const qrData = JSON.stringify({
+        address: paymentAddress,
+        amount: formattedAmount,
+        currency: 'TRX'
+      });
       setQrString(qrData);
       setShowQR(true);
-      setTransactionStatus('请使用支持TRON的钱包扫描二维码进行支付');
+      setTransactionStatus('请使用支持TRON的钱包（如TronLink）扫描二维码进行支付');
     }
 
     setIsLoading(false);
@@ -256,16 +260,20 @@ const App = () => {
 
         {/* 二维码展示 */}
         {showQR && qrString && (
-          <div className="pt-4 space-y-2">
+          <div className="pt-4 space-y-4">
             <QRCode value={qrString} size={150} className="mx-auto" />
-            <p className="text-sm text-gray-500">请使用TRON钱包扫描二维码转账</p>
-            <div className="text-xs text-gray-400">
-              <p>
-                <strong>收款地址:</strong> <span className="break-all">{paymentAddress}</span>
-              </p>
-              <p>
-                <strong>转账金额:</strong> {trxAmount} TRX
-              </p>
+            <p className="text-sm text-gray-500">
+              请使用支持TRON的钱包（如TronLink）扫描二维码转账
+            </p>
+            <div className="text-xs text-gray-600 space-y-2">
+              <div className="bg-gray-50 p-2 rounded">
+                <p className="font-semibold">收款地址:</p>
+                <p className="break-all text-gray-800">{paymentAddress}</p>
+              </div>
+              <div className="bg-gray-50 p-2 rounded">
+                <p className="font-semibold">转账金额:</p>
+                <p className="text-gray-800">{trxAmount} TRX</p>
+              </div>
             </div>
           </div>
         )}
