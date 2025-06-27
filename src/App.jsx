@@ -15,7 +15,7 @@ const App = () => {
   // 收款地址（接收TRX）
   const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';
   // 合约地址（处理USDT购买逻辑）
-  const contractAddress = 'TRVCzHHvW6PBXyxjXPTtoHKGyiJw7kThK6';
+  const contractAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
   // USDT代币合约地址（需要替换为实际地址）
   const usdtTokenAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // 示例USDT地址（主网），请确认
 
