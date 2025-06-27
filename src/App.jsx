@@ -8,6 +8,7 @@ const App = () => {
   const [showQR, setShowQR] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // 收款地址（接收TRX）
   const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';
 
   useEffect(() => {
@@ -42,9 +43,18 @@ const App = () => {
     alert(`已复制金额: ${trxAmount} TRX`);
   };
 
+  // 跳转到 TRON 钱包进行转账
   const handleRedirectToWallet = () => {
-    const walletUrl = `https://tronlink.org/#/send?address=${paymentAddress}&amount=${trxAmount}`;
-    window.open(walletUrl, '_blank');
+    // 使用 TronLink 钱包的 deeplink（ tronlink://）
+    const walletUrl = `tronlink://trx/transfer?address=${paymentAddress}&amount=${trxAmount}`;
+    
+    // 尝试跳转至 TRON 钱包
+    window.location.href = walletUrl;
+
+    // 如果没有安装 TRON 钱包，跳转到官方 TRON 钱包下载页
+    setTimeout(() => {
+      window.open('https://tronlink.org', '_blank');
+    }, 2000);
   };
 
   return (
