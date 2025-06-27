@@ -61,7 +61,7 @@ const App = () => {
         alert('购买失败，请重试！');
       });
     } else {
-      // 如果没有 TronLink 钱包，生成二维码，金额放入 amount 参数
+      // 生成二维码，地址和金额分开
       const qrData = `tron:${paymentAddress}?amount=${val.toFixed(6)}`;
       setQrString(qrData);  // 这里二维码指向收款钱包地址，amount 存储 TRX 数量
       setShowQR(true);
