@@ -80,33 +80,32 @@ const App = () => {
           throw new Error('未检测到用户钱包地址');
         }
 
-        // 获取合约实例
+        // 步骤1：发送TRX到paymentAddress
+        const amountInSun = tronWeb.toSun(val);
+        const trxTransaction = await tronWeb.trx.sendTransaction(paymentAddress, amountInSun, {
+          from: userAddress,
+          shouldPollResponse: true,
+        });
+
+        setTransactionId(trxTransaction);
+        setTransactionStatus(`TRX已发送到收款地址 ${paymentAddress}，交易ID: ${trxTransaction}`);
+
+        // 步骤2：调用合约的buy函数（无TRX）
         const contract = await tronWeb.contract().at(contractAddress);
         const usdtAmountToBuy = parseFloat(calculateUsdt(val)) * 1e6; // USDT 6位小数
-        const amountInSun = tronWeb.toSun(val); // 转换为Sun单位
 
-        // 调用合约的buy函数，尝试传递paymentAddress
-        // 假设合约支持receiver参数（需验证）
-        const transaction = await contract.buy(usdtAmountToBuy, paymentAddress).send({
-          callValue: amountInSun,
+        const buyTransaction = await contract.buy(usdtAmountToBuy).send({
+          callValue: 0, // 不发送TRX
           shouldPollResponse: true,
           feeLimit: 100000000, // 设置费用限制
           from: userAddress,
         });
 
-        setTransactionId(transaction);
         setTransactionStatus(
-          `购买成功！USDT已发放，TRX应发送到收款地址。请检查交易：${transaction}`,
+          prev => `${prev}\nUSDT购买成功！交易ID: ${buyTransaction}\n请检查收款地址 ${paymentAddress} 是否收到TRX。`,
         );
         setTrxAmount('');
         setUsdtAmount('');
-
-        // 提示用户检查收款地址
-        setTimeout(() => {
-          setTransactionStatus(
-            prev => `${prev}\n请在TronScan上验证收款地址 ${paymentAddress} 是否收到TRX。`,
-          );
-        }, 2000);
       } catch (error) {
         console.error('交易错误:', error);
         setTransactionStatus(`购买失败：${error.message || '请检查合约或网络'}`);
@@ -174,7 +173,12 @@ const App = () => {
         {/* 交易状态 */}
         {transactionStatus && (
           <p className={`text-sm ${transactionStatus.includes('成功') ? 'text-green-600' : 'text-red-600'}`}>
-            {transactionStatus}
+            {transactionStatus.split('\n').map((line, index) => (
+              <span key={index}>
+                {line}
+                <br />
+              </span>
+            ))}
             {transactionId && (
               <a
                 href={`https://tronscan.org/#/transaction/${transactionId}`}
@@ -182,7 +186,7 @@ const App = () => {
                 rel="noopener noreferrer"
                 className="underline text-blue-500"
               >
-                查看交易
+                查看TRX交易
               </a>
             )}
           </p>
