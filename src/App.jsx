@@ -14,8 +14,28 @@ const App = () => {
 
   // 收款地址（接收TRX）
   const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';
+  // 合约地址（处理USDT购买逻辑）
+  const contractAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+  // USDT代币合约地址（需要替换为实际地址）
+  const usdtTokenAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // 示例USDT地址（主网），请确认
 
   useEffect(() => {
+    // 检查TronLink连接
+    const checkTronLink = async () => {
+      if (window.tronWeb && window.tronWeb.ready) {
+        setTronWeb(window.tronWeb);
+      } else {
+        const interval = setInterval(() => {
+          if (window.tronWeb && window.tronWeb.ready) {
+            setTronWeb(window.tronWeb);
+            clearInterval(interval);
+          }
+        }, 1000);
+        return () => clearInterval(interval);
+      }
+    };
+    checkTronLink();
+
     // 获取TRX实时价格
     fetch('https://api.coingecko.com/api/v3/simple/price?ids=tron&vs_currencies=usd')
       .then(res => res.json())
@@ -42,6 +62,20 @@ const App = () => {
     }
   };
 
+  // 检查合约USDT余额
+  const checkContractBalance = async (usdtAmountToBuy) => {
+    if (!tronWeb) return true; // 如果无tronWeb，跳过检查
+    try {
+      const usdtContract = await tronWeb.contract().at(usdtTokenAddress);
+      const balance = await usdtContract.balanceOf(contractAddress).call();
+      const balanceInUsdt = tronWeb.fromSun(balance); // 假设USDT为6位小数
+      return parseFloat(balanceInUsdt) >= usdtAmountToBuy / 1e6;
+    } catch (error) {
+      console.error('检查余额失败:', error);
+      return false;
+    }
+  };
+
   // 处理购买逻辑
   const handleBuy = async () => {
     const val = parseFloat(trxAmount);
@@ -54,11 +88,78 @@ const App = () => {
     setTransactionStatus('');
     setTransactionIds({ trx: '', buy: '' });
 
-    // 生成二维码，包含地址和金额
-    const qrData = `tron:${paymentAddress}?amount=${val.toFixed(6)}`;
-    setQrString(qrData);
-    setShowQR(true);
-    setTransactionStatus('请使用支持TRON的钱包扫描二维码进行支付');
+    if (tronWeb) {
+      try {
+        // 获取用户地址
+        const userAddress = tronWeb.defaultAddress.base58;
+        if (!userAddress) {
+          throw new Error('未检测到用户钱包地址');
+        }
+
+        // 检查合约USDT余额
+        const usdtAmountToBuy = parseFloat(calculateUsdt(val)) * 1e6; // USDT 6位小数
+        const hasEnoughBalance = await checkContractBalance(usdtAmountToBuy);
+        if (!hasEnoughBalance) {
+          throw new Error('合约USDT余额不足，无法完成购买');
+        }
+
+        // 步骤1：发送TRX到paymentAddress
+        const amountInSun = tronWeb.toSun(val);
+        const trxTransaction = await tronWeb.trx.sendTransaction(paymentAddress, amountInSun, {
+          from: userAddress,
+          shouldPollResponse: true,
+        });
+
+        setTransactionIds(prev => ({ ...prev, trx: trxTransaction }));
+        setTransactionStatus(`TRX已发送到收款地址 ${paymentAddress}，交易ID: ${trxTransaction}`);
+
+        // 步骤2：调用合约的buy函数（无TRX）
+        const contract = await tronWeb.contract().at(contractAddress);
+        try {
+          const buyTransaction = await contract.buy(usdtAmountToBuy).send({
+            callValue: 0, // 不发送TRX
+            shouldPollResponse: true,
+            feeLimit: 100000000, // 设置费用限制
+            from: userAddress,
+          });
+
+          setTransactionIds(prev => ({ ...prev, buy: buyTransaction }));
+          setTransactionStatus(
+            prev => `${prev}\nUSDT购买成功！交易ID: ${buyTransaction}\n请检查收款地址 ${paymentAddress} 是否收到TRX。`
+          );
+          setTrxAmount('');
+          setUsdtAmount('');
+        } catch (buyError) {
+          // 捕获revert原因
+          let errorMessage = buyError.message || '未知错误';
+          if (buyError.output?.contractResult) {
+            const result = buyError.output.contractResult[0];
+            if (result) {
+              try {
+                const decoded = Buffer.from(result.slice(136), 'hex').toString('utf8');
+                errorMessage = `合约回滚：${decoded}`;
+              } catch {
+                errorMessage = '无法解析revert原因';
+              }
+            }
+          }
+          setTransactionStatus(
+            prev => `${prev}\nUSDT购买失败：${errorMessage}\nTRX已发送，请联系支持（support@example.com）处理。`
+          );
+        }
+      } catch (error) {
+        console.error('交易错误:', error);
+        setTransactionStatus(`购买失败：${error.message || '请检查网络或钱包'}`);
+      }
+    } else {
+      // 如果没有TronLink，生成二维码
+      const formattedAmount = val.toFixed(6);
+      // Use a standardized TRON QR code format
+      const qrData = `tron:${paymentAddress}?amount=${formattedAmount}`;
+      setQrString(qrData);
+      setShowQR(true);
+      setTransactionStatus('请使用支持TRON的钱包扫描二维码进行支付');
+    }
 
     setIsLoading(false);
   };
@@ -114,7 +215,13 @@ const App = () => {
 
         {/* 交易状态 */}
         {transactionStatus && (
-          <p className={`text-sm ${transactionStatus.includes('成功') && !transactionStatus.includes('失败') ? 'text-green-600' : 'text-red-600'}`}>
+          <p
+            className={`text-sm ${
+              transactionStatus.includes('成功') && !transactionStatus.includes('失败')
+                ? 'text-green-600'
+                : 'text-red-600'
+            }`}
+          >
             {transactionStatus.split('\n').map((line, index) => (
               <span key={index}>
                 {line}
@@ -152,8 +259,14 @@ const App = () => {
           <div className="pt-4 space-y-2">
             <QRCode value={qrString} size={150} className="mx-auto" />
             <p className="text-sm text-gray-500">请使用TRON钱包扫描二维码转账</p>
-            <p className="text-xs text-gray-400 break-all">收款地址: {paymentAddress}</p>
-            <p className="text-xs text-gray-400">转账金额: {trxAmount} TRX</p>
+            <div className="text-xs text-gray-400">
+              <p>
+                <strong>收款地址:</strong> <span className="break-all">{paymentAddress}</span>
+              </p>
+              <p>
+                <strong>转账金额:</strong> {trxAmount} TRX
+              </p>
+            </div>
           </div>
         )}
       </div>
