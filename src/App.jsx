@@ -49,7 +49,9 @@ const App = () => {
     const walletUrl = `tronlink://trx/transfer?address=${paymentAddress}&amount=${trxAmount}`;
     
     // 尝试跳转至 TRON 钱包
-    window.location.href = walletUrl;
+    const walletLink = document.createElement('a');
+    walletLink.href = walletUrl;
+    walletLink.click();
 
     // 如果没有安装 TRON 钱包，跳转到官方 TRON 钱包下载页
     setTimeout(() => {
