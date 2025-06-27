@@ -23,23 +23,22 @@ const App = () => {
     // 检查TronLink连接
     const checkTronLink = async () => {
       try {
-        if (window.tronWeb && window.tronWeb.ready && window.tronWeb.defaultAddress?.base58) {
-          setTronWeb(window.tronWeb);
-          setTransactionStatus('TronLink已连接');
-        } else {
-          setTransactionStatus('请安装并登录TronLink钱包');
-          const interval = setInterval(() => {
-            if (window.tronWeb && window.tronWeb.ready && window.tronWeb.defaultAddress?.base58) {
-              setTronWeb(window.tronWeb);
-              setTransactionStatus('TronLink已连接');
-              clearInterval(interval);
-            }
-          }, 1000);
-          return () => clearInterval(interval);
+        // 等待TronLink加载
+        let attempts = 0;
+        const maxAttempts = 10;
+        while (attempts < maxAttempts) {
+          if (window.tronWeb && window.tronWeb.ready && window.tronWeb.defaultAddress?.base58) {
+            setTronWeb(window.tronWeb);
+            setTransactionStatus('TronLink已连接');
+            return;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
         }
+        setTransactionStatus('未检测到TronLink，请安装并登录TronLink钱包');
       } catch (error) {
         console.error('TronLink连接失败:', error);
-        setTransactionStatus('TronLink连接失败，请检查钱包');
+        setTransactionStatus('TronLink连接失败，请检查钱包设置或刷新页面');
       }
     };
     checkTronLink();
@@ -65,7 +64,6 @@ const App = () => {
       setTrxAmount(val);
       setUsdtAmount(calculateUsdt(val));
       setShowQR(false);
-      setTransactionStatus(tronWeb ? 'TronLink已连接' : '请安装并登录TronLink钱包');
       setTransactionIds({ trx: '', buy: '' });
     }
   };
@@ -118,8 +116,9 @@ const App = () => {
           shouldPollResponse: true,
         });
 
-        setTransactionIds(prev => ({ ...prev, trx: trxTransaction.txid || trxTransaction }));
-        setTransactionStatus(`TRX已发送到收款地址 ${paymentAddress}，交易ID: ${trxTransaction.txid || trxTransaction}`);
+        const trxTxId = trxTransaction.txid || trxTransaction;
+        setTransactionIds(prev => ({ ...prev, trx: trxTxId }));
+        setTransactionStatus(`TRX已发送到收款地址 ${paymentAddress}，交易ID: ${trxTxId}`);
 
         // 步骤2：调用合约的buy函数（无TRX）
         const contract = await tronWeb.contract().at(contractAddress);
@@ -156,7 +155,7 @@ const App = () => {
         }
       } catch (error) {
         console.error('交易错误:', error);
-        setTransactionStatus(`购买失败：${error.message || '请检查网络或钱包'}`);
+        setTransactionStatus(`购买失败：${error.message || '请检查网络、钱包或刷新页面'}`);
       }
     } else {
       // 如果没有TronLink，生成二维码
@@ -164,7 +163,9 @@ const App = () => {
       const qrData = `tron:${paymentAddress}?amount=${formattedAmount}`;
       setQrString(qrData);
       setShowQR(true);
-      setTransactionStatus(`请使用TronLink钱包扫描二维码进行支付，或手动输入以下信息。\n二维码数据: ${qrData}`);
+      setTransactionStatus(
+        `请使用TronLink钱包扫描二维码进行支付，或手动输入以下信息。\n二维码数据: ${qrData}\n注意：如果金额未自动填充，请手动输入 ${formattedAmount} TRX。`
+      );
     }
 
     setIsLoading(false);
