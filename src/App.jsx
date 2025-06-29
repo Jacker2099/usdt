@@ -15,7 +15,7 @@ const App = () => {
   const [recentUsdtTransfers, setRecentUsdtTransfers] = useState([]);
 
   const paymentAddress = 'TWRAzGd4KGgyESBbe4EFaADFMFgG999BcD';
-  const contractAddress = 'TY92YEtSkZ39AiyS4AdG782uhhtGzj5w4H'; // 替换为新部署的合约地址
+  const contractAddress = 'TXpskgcxkzy9GvgUHf5Mh5gR5FFbHZMZLc'; // 替换为新部署的合约地址
 
   useEffect(() => {
     const checkTronLink = async () => {
